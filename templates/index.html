@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI ATS Resume Checker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slide-down { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
+        .animate-slide-up { animation: slide-up 0.8s ease-out forwards; }
+        .animate-slide-down { animation: slide-down 0.6s ease-out forwards; }
+        
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+
+        .hidden-step { display: none; }
+        
+        .drag-active {
+            border-color: #a855f7 !important;
+            background-color: rgba(168, 85, 247, 0.1) !important;
+            box-shadow: 0 25px 50px -12px rgba(168, 85, 247, 0.25) !important;
+            transform: scale(1.05);
+        }
+
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: rgba(30, 41, 59, 0.5); }
+        textarea::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.8); border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-x-hidden selection:bg-purple-500/30">
+
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+    </div>
+
+    <div class="relative z-10">
+        <div id="step-upload" class="container mx-auto px-4 pt-16 pb-12 animate-fade-in">
+            <div class="text-center mb-16">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 backdrop-blur-sm mb-6 animate-slide-down">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
+                    <span class="text-sm font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">AI-Powered ATS Analysis</span>
+                </div>
+                
+                <h1 class="text-6xl md:text-7xl font-bold mb-6 leading-tight animate-slide-up">
+                    <span class="bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent">Beat the ATS.</span><br />
+                    <span class="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Land the Interview.</span>
+                </h1>
+                
+                <p class="text-xl text-slate-400 max-w-2xl mx-auto mb-8 animate-slide-up delay-100">
+                    Get instant, AI-driven insights to optimize your resume for Applicant Tracking Systems.
+                </p>
+
+                <div class="flex flex-wrap justify-center gap-4 mb-12 animate-slide-up delay-200">
+                    <button id="btn-mode-resume" class="px-6 py-3 rounded-xl font-medium transition-all duration-300 bg-gradient-to-r from-purple-500 to-blue-500 shadow-lg shadow-purple-500/50 flex items-center gap-2">
+                        <i data-lucide="file-text" class="w-4 h-4"></i> Resume Only
+                    </button>
+                    <button id="btn-mode-job" class="px-6 py-3 rounded-xl font-medium transition-all duration-300 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 flex items-center gap-2">
+                        <i data-lucide="target" class="w-4 h-4"></i> Resume + Job Description
+                    </button>
+                </div>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <div id="drop-zone" class="relative group cursor-pointer transition-all duration-500 hover:scale-[1.02]">
+                    <div class="relative backdrop-blur-xl bg-slate-800/40 border-2 border-dashed border-slate-700 rounded-3xl p-12 transition-all duration-300 hover:border-slate-600" id="drop-zone-inner">
+                        <input type="file" id="file-input" accept=".pdf,.docx" class="hidden" />
+                        
+                        <div class="text-center" id="upload-content-empty">
+                            <i data-lucide="upload" class="w-16 h-16 mx-auto text-slate-400 group-hover:text-purple-400 transition-all mb-4"></i>
+                            <h3 class="text-2xl font-semibold mb-2">Drop your resume here</h3>
+                            <p class="text-slate-400">Supports PDF and DOCX • Max 10MB</p>
+                        </div>
+
+                        <div class="text-center hidden animate-fade-in" id="upload-content-filled">
+                            <i data-lucide="check-circle" class="w-16 h-16 mx-auto mb-4 text-green-400"></i>
+                            <h3 class="text-2xl font-semibold mb-2" id="file-name-display">filename.pdf</h3>
+                            <button id="btn-change-file" class="text-sm text-purple-400 hover:text-purple-300 z-20 relative">Change file</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="jd-container" class="mt-6 animate-slide-up hidden">
+                    <textarea id="jd-input" placeholder="Paste the job description here..."
+                        class="w-full h-48 px-6 py-4 bg-slate-800/40 backdrop-blur-xl border border-slate-700 rounded-2xl text-white focus:outline-none focus:border-purple-500 resize-none"></textarea>
+                </div>
+
+                <button id="btn-analyze" disabled
+                    class="w-full mt-8 px-8 py-5 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 rounded-2xl font-semibold text-lg shadow-2xl disabled:opacity-50 transition-all flex justify-center items-center">
+                    <i data-lucide="zap" class="w-5 h-5 mr-2"></i> Analyze Resume
+                </button>
+            </div>
+        </div>
+
+        <div id="step-analyzing" class="container mx-auto px-4 py-32 animate-fade-in hidden-step">
+            <div class="max-w-2xl mx-auto text-center">
+                <div class="relative inline-block mb-8">
+                    <div class="w-24 h-24 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 animate-pulse"></div>
+                </div>
+                <h2 class="text-4xl font-bold mb-6">Analyzing Your Resume</h2>
+                <div class="space-y-4 mb-8 text-left" id="analysis-steps-container"></div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                    <div id="main-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <p class="text-slate-400 mt-4"><span id="progress-text">0</span>% Complete</p>
+            </div>
+        </div>
+
+        <div id="step-results" class="container mx-auto px-4 py-12 animate-fade-in hidden-step">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-5xl font-bold mb-4">Your ATS Analysis</h2>
+                </div>
+
+                <div class="relative mb-12 group max-w-2xl mx-auto">
+                    <div class="relative backdrop-blur-xl bg-slate-800/60 border border-slate-700/50 rounded-3xl p-12 text-center">
+                        <h3 class="text-2xl font-semibold mb-4 text-slate-300">ATS Compatibility Score</h3>
+                        <div class="relative inline-block">
+                            <svg class="w-48 h-48 transform -rotate-90">
+                                <circle cx="96" cy="96" r="88" fill="none" stroke="currentColor" stroke-width="12" class="text-slate-700" />
+                                <circle id="score-circle" cx="96" cy="96" r="88" fill="none" stroke="url(#gradient)" stroke-width="12" stroke-linecap="round" stroke-dasharray="552.9" stroke-dashoffset="552.9" class="transition-all duration-1000 ease-out" />
+                                <defs><linearGradient id="gradient"><stop offset="0%" stop-color="#a855f7" /><stop offset="100%" stop-color="#3b82f6" /></linearGradient></defs>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span id="score-text" class="text-6xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">0</span>
+                            </div>
+                        </div>
+                        <p id="score-label" class="text-lg text-slate-400 mt-4">Good</p>
+                    </div>
+                </div>
+
+                <div id="breakdown-grid" class="grid md:grid-cols-5 gap-4 mb-12"></div>
+
+                <div class="grid md:grid-cols-2 gap-8 mb-12">
+                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-8">
+                        <h3 class="text-xl font-semibold text-green-400 mb-6 flex items-center gap-2"><i data-lucide="check-circle"></i> Strengths</h3>
+                        <ul id="list-strengths" class="space-y-3"></ul>
+                    </div>
+                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-8">
+                        <h3 class="text-xl font-semibold text-yellow-400 mb-6 flex items-center gap-2"><i data-lucide="trending-up"></i> Areas to Improve</h3>
+                        <ul id="list-improvements" class="space-y-3"></ul>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-8 mb-8">
+                    <h3 class="text-2xl font-semibold mb-6 flex items-center gap-3"><i data-lucide="eye" class="text-purple-400"></i> Keyword Analysis</h3>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div><h4 class="text-lg font-medium mb-4 text-green-400">Present</h4><div id="keywords-present" class="flex flex-wrap gap-2"></div></div>
+                        <div><h4 class="text-lg font-medium mb-4 text-red-400">Missing</h4><div id="keywords-missing" class="flex flex-wrap gap-2"></div></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center gap-4">
+                    <button id="btn-reset" class="px-8 py-4 bg-slate-800 border border-slate-700 rounded-xl font-medium hover:bg-slate-700 transition-all">Analyze Another</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State ---
+        let currentMode = 'resume-only';
+        let currentFile = null;
+        let jobDescription = '';
+
+        const analysisStepLabels = [
+            "Parsing document structure",
+            "Extracting keywords and skills",
+            "Analyzing ATS compatibility",
+            "Generating recommendations"
+        ];
+
+        // --- DOM ---
+        const stepUpload = document.getElementById('step-upload');
+        const stepAnalyzing = document.getElementById('step-analyzing');
+        const stepResults = document.getElementById('step-results');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const btnAnalyze = document.getElementById('btn-analyze');
+        const jdInput = document.getElementById('jd-input');
+
+        lucide.createIcons();
+
+        // --- Mode Logic ---
+        document.getElementById('btn-mode-resume').onclick = () => setMode('resume-only');
+        document.getElementById('btn-mode-job').onclick = () => setMode('with-job');
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('jd-container').classList.toggle('hidden', mode === 'resume-only');
+            validateForm();
+        }
+
+        // --- File Logic ---
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+        
+        function handleFile(file) {
+            if (file) {
+                currentFile = file;
+                document.getElementById('file-name-display').textContent = file.name;
+                document.getElementById('upload-content-empty').classList.add('hidden');
+                document.getElementById('upload-content-filled').classList.remove('hidden');
+                validateForm();
+            }
+        }
+
+        function validateForm() {
+            btnAnalyze.disabled = !currentFile || (currentMode === 'with-job' && !jdInput.value.trim());
+        }
+
+        jdInput.oninput = validateForm;
+
+        // --- API & Analysis Logic ---
+        btnAnalyze.onclick = async () => {
+            stepUpload.classList.add('hidden-step');
+            stepAnalyzing.classList.remove('hidden-step');
+            
+            // Start progress animation
+            runProgressAnimation();
+
+            const formData = new FormData();
+            formData.append('file', currentFile);
+            formData.append('jd', jdInput.value);
+
+            try {
+                // Call the Flask backend
+                const response = await fetch('http://127.0.0.1:5000/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Server error");
+                const data = await response.json();
+                
+                // Show results after a short delay for visual effect
+                setTimeout(() => showResults(data), 2000);
+
+            } catch (err) {
+                alert("Error connecting to backend. Make sure app.py is running!");
+                location.reload();
+            }
+        };
+
+        function runProgressAnimation() {
+            const container = document.getElementById('analysis-steps-container');
+            const bar = document.getElementById('main-progress-bar');
+            const text = document.getElementById('progress-text');
+            
+            container.innerHTML = analysisStepLabels.map(label => `
+                <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+                    <div class="w-8 h-8 rounded-full bg-slate-700 animate-pulse"></div>
+                    <span class="text-white">${label}</span>
+                </div>
+            `).join('');
+
+            let p = 0;
+            const interval = setInterval(() => {
+                p += Math.random() * 15;
+                if (p >= 95) { p = 95; clearInterval(interval); }
+                bar.style.width = p + '%';
+                text.textContent = Math.floor(p);
+            }, 300);
+        }
+
+        function showResults(data) {
+            stepAnalyzing.classList.add('hidden-step');
+            stepResults.classList.remove('hidden-step');
+
+            // Score Circle
+            const circle = document.getElementById('score-circle');
+            const offset = 552.9 * (1 - data.score / 100);
+            circle.style.strokeDashoffset = offset;
+            document.getElementById('score-text').textContent = data.score;
+
+            // Breakdown
+            document.getElementById('breakdown-grid').innerHTML = Object.entries(data.breakdown).map(([k, v]) => `
+                <div class="bg-slate-800/40 border border-slate-700 rounded-2xl p-6">
+                    <h4 class="text-sm text-slate-400 capitalize">${k}</h4>
+                    <div class="text-3xl font-bold text-purple-400">${v}</div>
+                </div>
+            `).join('');
+
+            // Lists
+            const mapList = (id, items) => document.getElementById(id).innerHTML = items.map(i => `<li>${i}</li>`).join('');
+            mapList('list-strengths', data.strengths);
+            mapList('list-improvements', data.improvements);
+
+            // Keywords
+            const mapKeys = (id, keys) => document.getElementById(id).innerHTML = keys.map(k => `<span class="px-3 py-1 bg-slate-700 rounded-full text-sm">${k}</span>`).join('');
+            mapKeys('keywords-present', data.keywords.present);
+            mapKeys('keywords-missing', data.keywords.missing);
+
+            lucide.createIcons();
+        }
+
+        document.getElementById('btn-reset').onclick = () => location.reload();
+    </script>
+</body>
+</html>
